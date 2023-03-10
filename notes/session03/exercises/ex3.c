@@ -29,12 +29,20 @@ void parent(int rc)
   // Add code here for the parent to check on the status of its child and
   // print a message that indicates what happened to the child when it or if it
   // exited.
+  int status;
+  wait(&status);
 
-  // printf("Parent %d: My child %d has passed the exam\n", getpid(), rc);
-
-  // printf("Parent %d: My child %d has failed the exam\n", getpid(), rc);
-
-  // printf("Parent %d: My child %d has exited with error\n", getpid(), rc);
+  if (WIFEXITED(status)) {
+    if (WEXITSTATUS(status) == 99) {
+      printf("Parent %d: My child %d has failed the exam\n", getpid(), rc);
+    }
+    else {
+      printf("Parent %d: My child %d has passed the exam\n", getpid(), rc);
+    }
+  }
+  else {
+    printf("Parent %d: My child %d has exited with error\n", getpid(), rc);
+  }
 }
 
 int

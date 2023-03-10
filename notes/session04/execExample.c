@@ -21,8 +21,10 @@ int main(void) {
      (i.e. you don't know how many args there will be when you write
      the exec command). */
 
+  printf("About to call execv with /bin/ls\n");
   char *const command[] = {"/bin/ls","-l","-h", NULL};
   execv("/bin/ls", command);
+  
 
   /* Option 2: execvp 
 
