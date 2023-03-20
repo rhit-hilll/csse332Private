@@ -2,6 +2,7 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <unistd.h>
+#include <signal.h> 
 
 #define simple_assert(message, test)                                           \
   do {                                                                         \
@@ -54,10 +55,96 @@ void setup(void) {
   usleep(3000000);
 }
 
+void setsighandler(int signum, void (*handler)(int))
+{
+	struct sigaction act;
+
+	act.sa_handler = handler;
+	sigemptyset(&act.sa_mask);
+	act.sa_flags = 0;
+
+	sigaction(signum, &act, NULL);
+}
+
+void alarm_handler(int handler) {
+  printf("Test Timed Out\n");
+  exit(1);
+}
+
 /**
  * Run all the test in the test suite.
  */
 void run_all_tests() { /* TODO: Add your code here. */
+  int rc;
+  int s;
+  
+  int childPID[num_tests];
+
+  setup();
+  int fd[2];
+  pipe(fd);
+
+  for (int i = 0; i < num_tests; i++) {
+    
+    rc = fork();
+
+    if (rc < 0) { //Cannot fork, terminate.
+      perror("Failed to fork a process");
+      exit(EXIT_FAILURE);
+    }
+
+    if (rc == 0) { //Child
+      
+
+      rc = fork();
+      childPID[i] = rc; //store child PID for later.
+
+      if (rc < 0) {
+        perror("Failed to fork a process");
+        exit(EXIT_FAILURE);
+      }
+
+      if (rc == 0) {
+        char *tresult = test_funcs[i]();
+        if(tresult == TEST_PASSED) {
+          close(fd[0]);
+	        close(fd[1]);
+	        exit(0);
+        } else {
+          close(fd[0]);
+	        write(fd[1], tresult, strlen(tresult));
+	        close(fd[1]);
+	        exit(1);
+        }
+
+      }
+      else {
+        setsighandler(SIGALRM, alarm_handler);
+        alarm(3);
+
+        waitpid(childPID[i], &s, 0);
+
+        if (WIFEXITED(s)) {
+          if (WEXITSTATUS(s) == 0) {
+            printf("Test Passed\n");
+          }
+          else {
+            close(fd[1]);
+
+            char buff[512];
+            if (read(fd[0], buff, 512) > 0) {
+              printf("Test Failed: %s\n", buff);
+            }
+            close(fd[0]);
+          }
+        }
+        else {
+          printf("Test Crashed\n");
+        }
+        exit(EXIT_SUCCESS);
+      }
+    }
+  }
 }
 
 char *test1() {
@@ -142,7 +229,7 @@ int main(int argc, char **argv) {
   add_test(test1);
   add_test(test2);
   add_test(test3);
-  /* add_test(test4); */
-  /* add_test(test5); */
+  add_test(test4);
+  add_test(test5);
   run_all_tests();
 }
